@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mambo Browser</title>
+  <style>
+    :root {
+      --bg-frame: #1e1e24;
+      --bg-toolbar: #2b2a33;
+      --bg-tab-active: #2b2a33;
+      --bg-tab-hover: #3b3a42;
+      --text-main: #fbfbfe;
+      --text-muted: #b1b1b3;
+      --accent-color: #00ddff;
+      --border-color: #3f3e46;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background: var(--bg-frame);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* --- Tab Strip --- */
+    #tab-strip {
+      background: var(--bg-frame);
+      display: flex;
+      align-items: flex-end;
+      padding: 8px 8px 0 8px;
+      gap: 4px;
+      height: 42px;
+    }
+
+    #tabs-list {
+      display: flex;
+      gap: 4px;
+      max-width: calc(100% - 80px);
+      overflow-x: auto;
+    }
+    #tabs-list::-webkit-scrollbar { display: none; }
+
+    .tab {
+      background: transparent;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 8px 8px 0 0;
+      min-width: 140px;
+      max-width: 200px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+      border: 1px solid transparent;
+      border-bottom: none;
+    }
+
+    .tab:hover { 
+      background: var(--bg-tab-hover); 
+      color: var(--text-main);
+    }
+    
+    .tab.active {
+      background: var(--bg-toolbar);
+      color: var(--text-main);
+      border-color: var(--border-color);
+      z-index: 2;
+    }
+
+    .tab-favicon { font-size: 14px; }
+    .tab-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-grow: 1;
+    }
+
+    .tab-close {
+      font-size: 11px;
+      opacity: 0.5;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .tab-close:hover { background: rgba(255,255,255,0.2); opacity: 1; color: #ff5555; }
+
+    .action-btn {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 6px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      transition: background 0.2s;
+    }
+    .action-btn:hover { background: var(--bg-tab-hover); color: var(--text-main); }
+
+    /* --- Navigation Toolbar --- */
+    #nav-toolbar {
+      background: var(--bg-toolbar);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      z-index: 3;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.1); }
+    .nav-btn:disabled { opacity: 0.2; cursor: default; }
+
+    #url-bar-container {
+      flex-grow: 1;
+      background: #1c1b22;
+      border-radius: 20px;
+      padding: 0 16px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+    #url-bar-container:focus-within {
+      border-color: var(--accent-color);
+      background: #09090b;
+      box-shadow: 0 0 0 2px rgba(0, 221, 255, 0.2);
+    }
+
+    #url-bar {
+      background: transparent;
+      border: none;
+      color: white;
+      width: 100%;
+      outline: none;
+      font-size: 14px;
+    }
+
+    /* Loading Progress Bar */
+    #progress-bar {
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 2px; width: 0%;
+      background: var(--accent-color);
+      transition: width 0.2s ease, opacity 0.3s ease;
+      opacity: 0;
+    }
+
+    /* --- Content Area --- */
+    #tabs-container {
+      flex-grow: 1;
+      position: relative;
+      background: #fff;
+    }
+
+    webview {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      visibility: hidden;
+    }
+    webview.active { visibility: visible; }
+
+    /* --- Modern Modal --- */
+    #extension-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-box {
+      background: var(--bg-toolbar);
+      padding: 24px;
+      border-radius: 12px;
+      width: 450px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center;}
+    .close { cursor: pointer; font-size: 20px; color: var(--text-muted); }
+    .close:hover { color: #fff; }
+    
+    .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
+    .input-group input { 
+      flex-grow: 1; padding: 10px 14px; 
+      background: #1c1b22; border: 1px solid var(--border-color); 
+      color: white; border-radius: 6px; outline: none; font-size: 13px;
+    }
+    .input-group input:focus { border-color: var(--accent-color); }
+    
+    .btn-primary {
+      background: var(--accent-color);
+      color: #000; border: none; padding: 10px 16px;
+      border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary { background: #3a3943; color: white; }
+
+    #extensions-list {
+      margin-top: 15px; max-height: 200px; overflow-y: auto;
+      border-top: 1px solid var(--border-color); padding-top: 10px;
+    }
+    .extension-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px; background: rgba(255,255,255,0.03);
+      margin-bottom: 6px; border-radius: 6px; border: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="tab-strip">
+  <div id="tab-strip">
+  <div id="tabs-list"></div>
+  <div class="action-btn" id="new-tab-btn" title="New Tab">+</div>
+  
+  <div id="system-stats" style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); padding-right: 10px;">
+    <span id="stat-mem" title="RAM Browser">📊 RAM: Loading...</span>
+    <span id="stat-disk" title="Sisa Storage C:">💾 Disk: Loading...</span>
+  </div>
+
+  <div class="action-btn" id="extensions-btn" title="Extensions">🧩</div>
+</div>
+    <div id="tabs-list"></div>
+    <div class="action-btn" id="new-tab-btn" title="New Tab">+</div>
+    <div class="action-btn" id="extensions-btn" style="margin-left:auto;" title="Extensions">🧩</div>
+  </div>
+
+  <div id="nav-toolbar">
+    <button class="nav-btn" id="back-btn" title="Back">←</button>
+    <button class="nav-btn" id="forward-btn" title="Forward">→</button>
+    <button class="nav-btn" id="reload-btn" title="Reload">↻</button>
+    
+    <div id="url-bar-container">
+      <input type="text" id="url-bar" placeholder="Type URL or search term...">
+      <div id="progress-bar"></div>
+    </div>
+    
+    <button class="nav-btn" id="go-btn" title="Go">➜</button>
+  </div>
+
+  <div id="tabs-container"></div>
+
+  <div id="extension-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Manajemen Ekstensi</h3>
+        <span class="close">&times;</span>
+      </div>
+      
+      <div class="input-group">
+        <input type="text" id="extension-url" placeholder="URL Ekstensi (.js)">
+        <button class="btn-primary" id="load-extension-btn">Muat URL</button>
+      </div>
+
+      <div class="input-group">
+        <input type="file" id="extension-file" accept=".crx,.js" style="display:none;">
+        <button class="btn-primary btn-secondary" id="load-crx-btn" style="width:100%;">📁 Upload File (.crx / .js)</button>
+      </div>
+
+      <div id="extensions-list"></div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
