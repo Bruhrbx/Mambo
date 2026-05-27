@@ -1,2 +1,4 @@
 # Mambo
-Mambo its a simpel browser
+Mambo its a browser for Devlopment
+
+NOT RECOMENT FOR BEGINNER
